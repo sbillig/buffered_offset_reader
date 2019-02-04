@@ -14,6 +14,8 @@ pub trait OffsetReadMut {
     fn read_at(&mut self, buf: &mut [u8], offset: usize) -> io::Result<usize>;
 }
 
+// The `BufOffsetReader` struct is like `std::io::BufReader`,
+// but uses `read_at()` (aka `pread()`) instead of `read()`.
 pub struct BufOffsetReader<'a, R: OffsetRead> {
     inner: &'a R,
     range: Range,
@@ -110,5 +112,35 @@ mod tests {
         assert!(!r.contains(0..4));
         r.read_at(&mut tmp, 0).unwrap();
         assert_eq!(&tmp, &[0, 1, 2, 3]);
+    }
+
+    fn do_reads<F>(mut read_at: F)
+    where
+        F: FnMut(&mut [u8], usize) -> io::Result<usize>,
+    {
+        let mut tmp = vec![0; 4];
+
+        let r1 = read_at(&mut tmp, 0).unwrap();
+        assert_eq!(r1, 4);
+        assert_eq!(&tmp, &[0, 1, 2, 3]);
+
+        let r2 = read_at(&mut tmp, 4).unwrap();
+        assert_eq!(r2, 4);
+        assert_eq!(&tmp, &[4, 5, 6, 7]);
+    }
+
+    #[test]
+    fn generic_read_at() {
+        let file: File = {
+            let v = (0..255).into_iter().collect::<Vec<u8>>();
+            let mut file = tempfile().unwrap();
+            file.write(&v).unwrap();
+            file
+        };
+
+        do_reads(|b, o| file.read_at(b, o));
+
+        let mut reader = BufOffsetReader::with_capacity(64, &file);
+        do_reads(|b, o| reader.read_at(b, o));
     }
 }
