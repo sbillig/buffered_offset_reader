@@ -46,9 +46,11 @@ impl<'a, R: OffsetRead> BufOffsetReader<'a, R> {
     }
 
     fn copy_range_to_slice(&self, r: &Range, buf: &mut [u8]) {
-        let src = r.shift_left(self.range.start);
-        let dst = r.shift_left(r.start);
-        buf[dst].copy_from_slice(&self.buffer[src]);
+        if r.len() > 0 {
+            let src = r.shift_left(self.range.start);
+            let dst = r.shift_left(r.start);
+            buf[dst].copy_from_slice(&self.buffer[src]);
+        }
     }
 }
 
