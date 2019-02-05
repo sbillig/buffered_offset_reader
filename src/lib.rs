@@ -125,47 +125,49 @@ mod tests {
     use tempfile::tempfile;
 
     #[test]
-    fn buffered_read_at() {
+    fn buffered_read_at() -> Result<(), io::Error> {
         let v = (0..200).into_iter().collect::<Vec<u8>>();
 
-        let mut file = tempfile().unwrap();
+        let mut file = tempfile()?;
 
-        file.write(&v).unwrap();
+        file.write(&v)?;
 
         let mut tmp = vec![111; 4];
         let mut r = BufOffsetReader::with_capacity(64, &file);
 
-        r.read_at(&mut tmp, 0).unwrap();
+        r.read_at(&mut tmp, 0)?;
         assert_eq!(&tmp, &[0, 1, 2, 3]);
 
         assert!(r.contains(40..50));
         assert!(!r.contains(66..70));
 
-        r.read_at(&mut tmp, 65).unwrap();
+        r.read_at(&mut tmp, 65)?;
         assert_eq!(&tmp, &[65, 66, 67, 68]);
         assert!(r.contains(70..74));
 
-        r.read_at(&mut tmp, 70).unwrap();
+        r.read_at(&mut tmp, 70)?;
         assert_eq!(&tmp, &[70, 71, 72, 73]);
 
         assert!(!r.contains(0..4));
-        r.read_at(&mut tmp, 0).unwrap();
+        r.read_at(&mut tmp, 0)?;
         assert_eq!(&tmp, &[0, 1, 2, 3]);
 
         // Read end of file
-        let rlen = r.read_at(&mut tmp, 197).unwrap();
+        let rlen = r.read_at(&mut tmp, 197)?;
         assert_eq!(rlen, 3);
         assert_eq!(&tmp[0..3], &[197, 198, 199]);
 
         // Read past the end of file
-        let rlen = r.read_at(&mut tmp, 200).unwrap();
+        let rlen = r.read_at(&mut tmp, 200)?;
         assert_eq!(rlen, 0);
 
         // Read more than the buffer capacity
         let mut bigtmp = vec![0; 100];
-        let rlen = r.read_at(&mut bigtmp, 100).unwrap();
+        let rlen = r.read_at(&mut bigtmp, 100)?;
         assert_eq!(rlen, 100);
         assert_eq!(&bigtmp[0..3], &[100, 101, 102]);
+
+        Ok(())
     }
 
     fn do_reads<F>(mut read_at: F)
