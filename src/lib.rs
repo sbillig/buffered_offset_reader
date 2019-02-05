@@ -1,3 +1,28 @@
+//! `BufOffsetReader` is like `std::io::BufReader`,
+//! but it allows reading at arbitrary positions in the underlying file.
+//!
+//! Uses `std::os::unix::fs::FileExt::read_at()` (on unix (aka `pread()`)
+//! and `std::os::windows::fs::FileExt::seek_read()` (on windows) to read
+//! from the underlying file in a thread-safe manner, so only a non-mutable reference
+//! to the file is needed.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use buffered_offset_reader::BufOffsetReader;
+//! use std::fs::File;
+//!
+//! fn main() -> std::io::Result<()> {
+//!     let f = File::open("log.txt")?;
+//!     let r = BufOffsetReader::new(&f);
+//!     let buf = vec![0; 8];
+//!
+//!     r.read_at(&mut buf, 0)?;  // read 8 bytes at offset 0
+//!     r.read_at(&mut buf, 32)?; // read 8 bytes at offset 32
+//!     Ok(())
+//! }
+//! ```
+
 use std::fs::File;
 use std::io;
 
@@ -14,8 +39,6 @@ pub trait OffsetReadMut {
     fn read_at(&mut self, buf: &mut [u8], offset: usize) -> io::Result<usize>;
 }
 
-// The `BufOffsetReader` struct is like `std::io::BufReader`,
-// but uses `read_at()` (aka `pread()`) instead of `read()`.
 pub struct BufOffsetReader<'a, R: OffsetRead> {
     inner: &'a R,
     range: Range,
@@ -23,6 +46,7 @@ pub struct BufOffsetReader<'a, R: OffsetRead> {
 }
 
 impl<'a, R: OffsetRead> BufOffsetReader<'a, R> {
+    /// Creates a new buffered reader with default buffer capacity (currently 8KB).
     pub fn new(inner: &'a R) -> BufOffsetReader<'a, R> {
         BufOffsetReader::with_capacity(DEFAULT_BUF_SIZE, inner)
     }
@@ -35,6 +59,8 @@ impl<'a, R: OffsetRead> BufOffsetReader<'a, R> {
         }
     }
 
+    /// Check whether the specified data range (of the underlying file) is
+    /// currently contained in the reader's in-memory buffer.
     pub fn contains(&self, r: Range) -> bool {
         self.range.intersect(&r) == r
     }
@@ -68,6 +94,8 @@ impl<'a, R: OffsetRead> OffsetReadMut for BufOffsetReader<'a, R> {
 }
 
 impl OffsetRead for File {
+    /// Uses `std::os::unix::fs::FileExt::read_at()` (aka `pread()`) on unix
+    /// and `std::os::windows::fs::FileExt::seek_read()` on windows.
     #[cfg(unix)]
     fn read_at(&self, buf: &mut [u8], offset: usize) -> io::Result<usize> {
         use std::os::unix::prelude::FileExt;
