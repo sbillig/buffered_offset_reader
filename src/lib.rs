@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn buffered_read_at() {
-        let v = (0..255).into_iter().collect::<Vec<u8>>();
+        let v = (0..200).into_iter().collect::<Vec<u8>>();
 
         let mut file = tempfile().unwrap();
 
@@ -114,6 +114,13 @@ mod tests {
         assert!(!r.contains(0..4));
         r.read_at(&mut tmp, 0).unwrap();
         assert_eq!(&tmp, &[0, 1, 2, 3]);
+
+        let rlen = r.read_at(&mut tmp, 197).unwrap();
+        assert_eq!(rlen, 3);
+        assert_eq!(&tmp[0..3], &[197, 198, 199]);
+
+        let rlen = r.read_at(&mut tmp, 200).unwrap();
+        assert_eq!(rlen, 0);
     }
 
     fn do_reads<F>(mut read_at: F)
