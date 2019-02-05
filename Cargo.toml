@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["sean billig <sean.billig@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
+description = "Buffered file read_at (pread)"
 repository = "https://github.com/sbillig/buffered_offset_reader"
 keywords = ["buffered", "read_at", "pread", "seek_read"]
 
