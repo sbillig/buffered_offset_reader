@@ -22,6 +22,11 @@
 //!     Ok(())
 //! }
 //! ```
+//!
+//! NB: The buffering logic is currently very simple: if the requested
+//! range isn't completely contained in the buffer, we read `capacity` bytes
+//! into memory, starting at the requested offset. This works well for generally
+//! "forward" reads, but not so great for eg. iterating backward through a file.
 
 use std::fs::File;
 use std::io;
