@@ -10,7 +10,7 @@ os:
 
 cache: cargo
 script:
-  - cargo test --verbose
+  - cargo test
 
 matrix:
   allow_failures:

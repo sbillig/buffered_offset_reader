@@ -1,8 +1,8 @@
 //! `BufOffsetReader` is like `std::io::BufReader`,
 //! but it allows reading at arbitrary positions in the underlying file.
 //!
-//! Uses `std::os::unix::fs::FileExt::read_at()` (on unix (aka `pread()`)
-//! and `std::os::windows::fs::FileExt::seek_read()` (on windows) to read
+//! Uses `std::os::unix::fs::FileExt::read_at()` on unix (aka `pread()`)
+//! and `std::os::windows::fs::FileExt::seek_read()` on windows to read
 //! from the underlying file in a thread-safe manner, so only a non-mutable reference
 //! to the file is needed.
 //!

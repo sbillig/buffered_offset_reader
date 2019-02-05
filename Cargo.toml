@@ -6,7 +6,10 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "Buffered file read_at (pread)"
 repository = "https://github.com/sbillig/buffered_offset_reader"
+documentation = "https://docs.rs/buffered_offset_reader/"
+readme = "README.md"
 keywords = ["buffered", "read_at", "pread", "seek_read"]
+exclude = [".travis.yml"]
 
 [dependencies]
 
@@ -17,3 +20,6 @@ tempfile = "3.0"
 [[bench]]
 name = "bench"
 harness = false
+
+[badges]
+travis-ci = { repository = "sbillig/buffered_offset_reader" }
