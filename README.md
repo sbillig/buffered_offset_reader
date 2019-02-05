@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/sbillig/buffered_offset_reader.svg?branch=master)](https://travis-ci.org/sbillig/buffered_offset_reader)
 [![Documentation](https://docs.rs/buffered_offset_reader/badge.svg)](https://docs.rs/buffered_offset_reader)
 
-Rust crate for buffered file read_at() (aka pread).
+Rust crate for buffered reading of a file at arbitrary offsets.
 
 Uses `std::os::unix::fs::FileExt::read_at()` on unix (aka `pread()`)
 or `std::os::windows::fs::FileExt::seek_read()` on windows to do thread-safe
