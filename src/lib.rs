@@ -9,13 +9,13 @@
 //! # Examples
 //!
 //! ```no_run
-//! use buffered_offset_reader::BufOffsetReader;
+//! use buffered_offset_reader::{BufOffsetReader, OffsetReadMut};
 //! use std::fs::File;
 //!
 //! fn main() -> std::io::Result<()> {
 //!     let f = File::open("log.txt")?;
-//!     let r = BufOffsetReader::new(&f);
-//!     let buf = vec![0; 8];
+//!     let mut r = BufOffsetReader::new(&f);
+//!     let mut buf = vec![0; 8];
 //!
 //!     r.read_at(&mut buf, 0)?;  // read 8 bytes at offset 0
 //!     r.read_at(&mut buf, 32)?; // read 8 bytes at offset 32
@@ -59,6 +59,10 @@ impl<'a, R: OffsetRead> BufOffsetReader<'a, R> {
         }
     }
 
+    pub fn capacity(&self) -> usize {
+        self.buffer.len()
+    }
+
     /// Check whether the specified data range (of the underlying file) is
     /// currently contained in the reader's in-memory buffer.
     pub fn contains(&self, r: Range) -> bool {
@@ -82,8 +86,13 @@ impl<'a, R: OffsetRead> BufOffsetReader<'a, R> {
 
 impl<'a, R: OffsetRead> OffsetReadMut for BufOffsetReader<'a, R> {
     fn read_at(&mut self, mut buf: &mut [u8], offset: usize) -> io::Result<usize> {
+        if buf.len() > self.capacity() {
+            return self.inner.read_at(&mut buf, offset);
+        }
+
         let r = offset..(offset + buf.len());
         let mut i = self.range.intersect(&r);
+
         if i.len() < buf.len() {
             self.load_page_at_offset(offset)?;
             i = self.range.intersect(&r)
@@ -143,12 +152,20 @@ mod tests {
         r.read_at(&mut tmp, 0).unwrap();
         assert_eq!(&tmp, &[0, 1, 2, 3]);
 
+        // Read end of file
         let rlen = r.read_at(&mut tmp, 197).unwrap();
         assert_eq!(rlen, 3);
         assert_eq!(&tmp[0..3], &[197, 198, 199]);
 
+        // Read past the end of file
         let rlen = r.read_at(&mut tmp, 200).unwrap();
         assert_eq!(rlen, 0);
+
+        // Read more than the buffer capacity
+        let mut bigtmp = vec![0; 100];
+        let rlen = r.read_at(&mut bigtmp, 100).unwrap();
+        assert_eq!(rlen, 100);
+        assert_eq!(&bigtmp[0..3], &[100, 101, 102]);
     }
 
     fn do_reads<F>(mut read_at: F)
