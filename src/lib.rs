@@ -74,6 +74,10 @@ impl<'a, R: OffsetRead> BufOffsetReader<'a, R> {
         self.range.intersect(&r) == r
     }
 
+    pub fn clear(&mut self) {
+        self.range = 0..0;
+    }
+
     fn load_page_at_offset(&mut self, offset: usize) -> io::Result<usize> {
         let count = self.inner.read_at(&mut self.buffer, offset)?;
         self.range = (offset as usize)..(offset as usize + count);
@@ -120,6 +124,29 @@ impl OffsetRead for File {
     fn read_at(&self, buf: &mut [u8], offset: usize) -> io::Result<usize> {
         use std::os::windows::prelude::FileExt;
         FileExt::seek_read(self, buf, offset as u64)
+    }
+}
+
+pub trait OffsetWrite {
+    fn write_at(&self, buf: &[u8], offset: usize) -> io::Result<usize>;
+}
+
+impl OffsetWrite for File {
+    /// For convenience, we also expose write_at (for File), because
+    /// code that needs to read_at might want to write_at.
+    ///
+    /// Uses `std::os::unix::prelude::FileExt::write_at` and
+    /// `std::os::windows::prelude::FileExt::seek_write`.
+    #[cfg(unix)]
+    fn write_at(&self, buf: &[u8], offset: usize) -> io::Result<usize> {
+        use std::os::unix::prelude::FileExt;
+        FileExt::write_at(self, buf, offset as u64)
+    }
+
+    #[cfg(windows)]
+    fn write_at(&self, buf: &[u8], offset: usize) -> io::Result<usize> {
+        use std::os::windows::prelude::FileExt;
+        FileExt::seek_write(self, buf, offset as u64)
     }
 }
 
@@ -172,6 +199,37 @@ mod tests {
         assert_eq!(rlen, 100);
         assert_eq!(&bigtmp[0..3], &[100, 101, 102]);
 
+        Ok(())
+    }
+
+    #[test]
+    fn read_and_write() -> Result<(), io::Error> {
+        let v = (0..200).into_iter().collect::<Vec<u8>>();
+
+        let file = tempfile()?;
+        let mut r = BufOffsetReader::with_capacity(64, &file);
+
+        file.write_at(&v, 0)?;
+        let mut tmp = [0, 0, 0, 0];
+        r.read_at(&mut tmp, 0)?;
+        assert_eq!(&tmp, &[0, 1, 2, 3]);
+
+        file.write_at(&[100, 100, 100, 100], 0)?;
+
+        // r's buffer still contains the old values
+        assert!(r.contains(0..4));
+        r.read_at(&mut tmp, 0)?;
+        assert_eq!(&tmp, &[0, 1, 2, 3]);
+
+        r.clear();
+        assert!(!r.contains(0..4));
+        r.read_at(&mut tmp, 0)?;
+        assert_eq!(&tmp, &[100, 100, 100, 100]);
+
+        file.write_at(&v, 200)?;
+        let c = r.read_at(&mut tmp, 210)?;
+        assert_eq!(c, 4);
+        assert_eq!(&tmp, &[10, 11, 12, 13]);
         Ok(())
     }
 

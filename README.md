@@ -13,8 +13,8 @@ reads of the underlying file.
 
 ```rust
 use buffered_offset_reader::{BufOffsetReader, OffsetReadMut};
-
 use std::fs::File;
+
 fn main() -> std::io::Result<()> {
     let f = File::open("log.txt")?;
     let mut reader = BufOffsetReader::new(&f);
