@@ -28,6 +28,7 @@
 //! into memory, starting at the requested offset. This works well for generally
 //! "forward" reads, but not so great for eg. iterating backward through a file.
 
+use std::cmp::min;
 use std::fs::File;
 use std::io;
 
@@ -108,6 +109,16 @@ impl<'a, R: OffsetRead> OffsetReadMut for BufOffsetReader<'a, R> {
         }
         self.copy_range_to_slice(&i, &mut buf);
         Ok(i.len())
+    }
+}
+
+impl OffsetRead for &[u8] {
+    fn read_at(&self, buf: &mut [u8], offset: usize) -> io::Result<usize> {
+        Ok(self.get(offset..).map_or(0, |r| {
+            let n = min(r.len(), buf.len());
+            buf[..n].copy_from_slice(&r[..n]);
+            n
+        }))
     }
 }
 
@@ -230,6 +241,27 @@ mod tests {
         let c = r.read_at(&mut tmp, 210)?;
         assert_eq!(c, 4);
         assert_eq!(&tmp, &[10, 11, 12, 13]);
+        Ok(())
+    }
+
+    #[test]
+    fn slice_read_at() -> Result<(), io::Error> {
+        let v = (0..200).into_iter().collect::<Vec<u8>>();
+        let s = &v[..];
+
+        let mut tmp = [0, 0, 0, 0];
+        let n = s.read_at(&mut tmp, 100)?;
+        assert_eq!(n, 4);
+        assert_eq!(&tmp, &[100, 101, 102, 103]);
+
+        let n = s.read_at(&mut tmp, 198)?;
+        assert_eq!(n, 2);
+        assert_eq!(&tmp, &[198, 199, 102, 103]);
+
+        let n = s.read_at(&mut tmp, 300)?;
+        assert_eq!(n, 0);
+        assert_eq!(&tmp, &[198, 199, 102, 103]);
+
         Ok(())
     }
 
