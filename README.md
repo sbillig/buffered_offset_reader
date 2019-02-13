@@ -17,7 +17,7 @@ use std::fs::File;
 
 fn main() -> std::io::Result<()> {
     let f = File::open("log.txt")?;
-    let mut reader = BufOffsetReader::new(&f);
+    let mut reader = BufOffsetReader::new(f);
     let mut tmp = vec![0; 8];
 
     reader.read_at(&mut tmp, 0)?;  // read 8 bytes at offset 0
