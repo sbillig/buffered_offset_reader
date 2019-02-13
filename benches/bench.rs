@@ -37,7 +37,7 @@ fn read_buffered(c: &mut Criterion) {
     let (file, chunk) = make_temp_file(CHUNK_SIZE, CHUNK_COUNT);
 
     c.bench_function("buffered_read_at", move |b| {
-        let mut r = BufOffsetReader::with_capacity(CHUNK_SIZE as usize * 16, &file);
+        let mut r = BufOffsetReader::with_capacity(CHUNK_SIZE as usize * 16, file.try_clone().unwrap());
 
         let mut tmp = vec![0; CHUNK_SIZE as usize];
         b.iter(|| {

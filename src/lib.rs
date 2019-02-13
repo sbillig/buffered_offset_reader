@@ -14,7 +14,7 @@
 //!
 //! fn main() -> std::io::Result<()> {
 //!     let f = File::open("log.txt")?;
-//!     let mut r = BufOffsetReader::new(&f);
+//!     let mut r = BufOffsetReader::new(f);
 //!     let mut buf = vec![0; 8];
 //!
 //!     r.read_at(&mut buf, 0)?;  // read 8 bytes at offset 0
@@ -45,19 +45,19 @@ pub trait OffsetReadMut {
     fn read_at(&mut self, buf: &mut [u8], offset: usize) -> io::Result<usize>;
 }
 
-pub struct BufOffsetReader<'a, R: OffsetRead> {
-    inner: &'a R,
+pub struct BufOffsetReader<R: OffsetRead> {
+    inner: R,
     range: Range,
     buffer: Vec<u8>,
 }
 
-impl<'a, R: OffsetRead> BufOffsetReader<'a, R> {
+impl<R: OffsetRead> BufOffsetReader<R> {
     /// Creates a new buffered reader with default buffer capacity (currently 8KB).
-    pub fn new(inner: &'a R) -> BufOffsetReader<'a, R> {
+    pub fn new(inner: R) -> BufOffsetReader<R> {
         BufOffsetReader::with_capacity(DEFAULT_BUF_SIZE, inner)
     }
 
-    pub fn with_capacity(cap: usize, inner: &'a R) -> BufOffsetReader<'a, R> {
+    pub fn with_capacity(cap: usize, inner: R) -> BufOffsetReader<R> {
         BufOffsetReader {
             inner,
             range: 0..0,
@@ -94,7 +94,7 @@ impl<'a, R: OffsetRead> BufOffsetReader<'a, R> {
     }
 }
 
-impl<'a, R: OffsetRead> OffsetReadMut for BufOffsetReader<'a, R> {
+impl<R: OffsetRead> OffsetReadMut for BufOffsetReader<R> {
     fn read_at(&mut self, mut buf: &mut [u8], offset: usize) -> io::Result<usize> {
         if buf.len() > self.capacity() {
             return self.inner.read_at(&mut buf, offset);
@@ -176,7 +176,7 @@ mod tests {
         file.write(&v)?;
 
         let mut tmp = vec![111; 4];
-        let mut r = BufOffsetReader::with_capacity(64, &file);
+        let mut r = BufOffsetReader::with_capacity(64, file);
 
         r.read_at(&mut tmp, 0)?;
         assert_eq!(&tmp, &[0, 1, 2, 3]);
@@ -218,7 +218,7 @@ mod tests {
         let v = (0..200).into_iter().collect::<Vec<u8>>();
 
         let file = tempfile()?;
-        let mut r = BufOffsetReader::with_capacity(64, &file);
+        let mut r = BufOffsetReader::with_capacity(64, file.try_clone()?);
 
         file.write_at(&v, 0)?;
         let mut tmp = [0, 0, 0, 0];
@@ -291,7 +291,7 @@ mod tests {
 
         do_reads(|b, o| file.read_at(b, o));
 
-        let mut reader = BufOffsetReader::with_capacity(64, &file);
+        let mut reader = BufOffsetReader::with_capacity(64, file);
         do_reads(|b, o| reader.read_at(b, o));
     }
 }
