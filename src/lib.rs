@@ -38,11 +38,11 @@ use range::*;
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
 pub trait OffsetRead {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<u64>;
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<usize>;
 }
 
 pub trait OffsetReadMut {
-    fn read_at(&mut self, buf: &mut [u8], offset: u64) -> io::Result<u64>;
+    fn read_at(&mut self, buf: &mut [u8], offset: u64) -> io::Result<usize>;
 }
 
 pub struct BufOffsetReader<R: OffsetRead> {
@@ -79,9 +79,9 @@ impl<R: OffsetRead> BufOffsetReader<R> {
         self.range = 0..0;
     }
 
-    fn load_page_at_offset(&mut self, offset: u64) -> io::Result<u64> {
+    fn load_page_at_offset(&mut self, offset: u64) -> io::Result<usize> {
         let count = self.inner.read_at(&mut self.buffer, offset)?;
-        self.range = (offset as usize)..((offset + count) as usize);
+        self.range = (offset as usize)..(offset as usize + count);
         Ok(count)
     }
 
@@ -95,7 +95,7 @@ impl<R: OffsetRead> BufOffsetReader<R> {
 }
 
 impl<R: OffsetRead> OffsetReadMut for BufOffsetReader<R> {
-    fn read_at(&mut self, mut buf: &mut [u8], offset: u64) -> io::Result<u64> {
+    fn read_at(&mut self, mut buf: &mut [u8], offset: u64) -> io::Result<usize> {
         if buf.len() > self.capacity() {
             return self.inner.read_at(&mut buf, offset);
         }
@@ -108,16 +108,16 @@ impl<R: OffsetRead> OffsetReadMut for BufOffsetReader<R> {
             i = self.range.intersect(&r)
         }
         self.copy_range_to_slice(&i, &mut buf);
-        Ok(i.len() as u64)
+        Ok(i.len())
     }
 }
 
 impl OffsetRead for &[u8] {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<u64> {
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<usize> {
         Ok(self.get(offset as usize..).map_or(0, |r| {
             let n = min(r.len(), buf.len());
             buf[..n].copy_from_slice(&r[..n]);
-            n as u64
+            n
         }))
     }
 }
@@ -126,20 +126,20 @@ impl OffsetRead for File {
     /// Uses `std::os::unix::fs::FileExt::read_at()` (aka `pread()`) on unix
     /// and `std::os::windows::fs::FileExt::seek_read()` on windows.
     #[cfg(unix)]
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<u64> {
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<usize> {
         use std::os::unix::prelude::FileExt;
-        FileExt::read_at(self, buf, offset).map(|n| n as u64)
+        FileExt::read_at(self, buf, offset)
     }
 
     #[cfg(windows)]
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<u64> {
+    fn read_at(&self, buf: &mut [u8], offset: u64) -> io::Result<usize> {
         use std::os::windows::prelude::FileExt;
-        FileExt::seek_read(self, buf, offset as u64)
+        FileExt::seek_read(self, buf, offset)
     }
 }
 
 pub trait OffsetWrite {
-    fn write_at(&self, buf: &[u8], offset: u64) -> io::Result<u64>;
+    fn write_at(&self, buf: &[u8], offset: u64) -> io::Result<usize>;
 }
 
 impl OffsetWrite for File {
@@ -149,15 +149,15 @@ impl OffsetWrite for File {
     /// Uses `std::os::unix::prelude::FileExt::write_at` and
     /// `std::os::windows::prelude::FileExt::seek_write`.
     #[cfg(unix)]
-    fn write_at(&self, buf: &[u8], offset: u64) -> io::Result<u64> {
+    fn write_at(&self, buf: &[u8], offset: u64) -> io::Result<usize> {
         use std::os::unix::prelude::FileExt;
-        FileExt::write_at(self, buf, offset).map(|n| n as u64)
+        FileExt::write_at(self, buf, offset)
     }
 
     #[cfg(windows)]
-    fn write_at(&self, buf: &[u8], offset: u64) -> io::Result<u64> {
+    fn write_at(&self, buf: &[u8], offset: u64) -> io::Result<usize> {
         use std::os::windows::prelude::FileExt;
-        FileExt::seek_write(self, buf, offset).map(|n| n as u64)
+        FileExt::seek_write(self, buf, offset)
     }
 }
 
@@ -267,7 +267,7 @@ mod tests {
 
     fn do_reads<F>(mut read_at: F)
     where
-        F: FnMut(&mut [u8], u64) -> io::Result<u64>,
+        F: FnMut(&mut [u8], u64) -> io::Result<usize>,
     {
         let mut tmp = vec![0; 4];
 
