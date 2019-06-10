@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! `BufOffsetReader` is like `std::io::BufReader`,
 //! but it allows reading at arbitrary positions in the underlying file.
 //!
